@@ -1,9 +1,12 @@
 package config
 
 import (
-    "io/ioutil"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"strconv" // Для конвертации строки в число
 
-    "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
@@ -24,5 +27,20 @@ func Load(path string) (*Config, error) {
     if err := yaml.Unmarshal(data, &cfg); err != nil {
         return nil, err
     }
+
+    // Дополнительное использование переменных окружения, если они заданы
+    if port := os.Getenv("PORT"); port != "" {
+        // Преобразуем строку в int
+        if p, err := strconv.Atoi(port); err == nil {
+            cfg.Port = p
+        } else {
+            return nil, fmt.Errorf("invalid PORT value: %v", err)
+        }
+    }
+
+    if backends := os.Getenv("BACKENDS"); backends != "" {
+        cfg.Backends = append(cfg.Backends, backends)
+    }
+
     return &cfg, nil
 }

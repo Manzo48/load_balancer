@@ -1,20 +1,37 @@
-# Стадия сборки
-FROM golang:1.21 AS builder
+
+FROM golang:1.23 AS builder
+
 WORKDIR /app
 
-# Модули
+
 COPY go.mod go.sum ./
+
+# Загружаем зависимости
 RUN go mod tidy
 
-# Исходный код
+# Копируем исходный код
 COPY . .
 
-# Сборка статического бинарника
+# Собираем бинарник для Linux без зависимостей
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o loadbalancer cmd/loadbalancer/main.go
 
-# Минимальный финальный образ
-FROM scratch
+# Второй этап: минимальный образ для финальной сборки
+FROM alpine:latest
+
+# Устанавливаем зависимости для работы с SSL (если понадобится)
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /app
+
+# Копируем бинарник и конфиги
 COPY --from=builder /app/loadbalancer /loadbalancer
-COPY configs/ /configs/
-WORKDIR /
-ENTRYPOINT ["/loadbalancer"]
+COPY --from=builder /app/configs /configs
+
+
+RUN mkdir /logs
+
+
+EXPOSE 8080
+
+# Команда запуска
+CMD ["/loadbalancer", "-config=/configs/config.yaml"]

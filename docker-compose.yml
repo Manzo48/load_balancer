@@ -1,44 +1,37 @@
-
 services:
   loadbalancer:
     build: .
+    container_name: loadbalancer
     ports:
       - "8080:8080"
     volumes:
-      - ./configs:/app/configs:ro
+      - ./configs:/configs:ro,z  # Монтируем локальную директорию с конфигами
+    command: ["/loadbalancer", "-config=/configs/config.yaml"]
+    environment:
+      - LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
     depends_on:
       - backend1
       - backend2
-    networks:
-      lb-network:
-        aliases:
-          - lb.local
 
   backend1:
-    image: golang:1.22
-    volumes:
-      - ./mock/server1:/app:z
-    working_dir: /app
-    command: sh -c "go run main.go"
+    build: ./mock/server1
+    container_name: backend1
     ports:
       - "9001:9001"
-    networks:
-      lb-network:
-        aliases:
-          - backend1.local
+    command: ["go", "run", "main.go"]
 
   backend2:
-    image: golang:1.22
-    volumes:
-      - ./mock/server2:/app:z
-    working_dir: /app
-    command: sh -c "go run main.go"
+    build: ./mock/server2
+    container_name: backend2
     ports:
       - "9002:9002"
-    networks:
-      lb-network:
-        aliases:
-          - backend2.local
+    command: ["go", "run", "main.go"]
 
 networks:
   lb-network:
