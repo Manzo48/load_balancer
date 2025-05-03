@@ -1,1 +1,46 @@
-co
+
+services:
+  loadbalancer:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./configs:/app/configs:ro
+    depends_on:
+      - backend1
+      - backend2
+    networks:
+      lb-network:
+        aliases:
+          - lb.local
+
+  backend1:
+    image: golang:1.22
+    volumes:
+      - ./mock/server1:/app:z
+    working_dir: /app
+    command: sh -c "go run main.go"
+    ports:
+      - "9001:9001"
+    networks:
+      lb-network:
+        aliases:
+          - backend1.local
+
+  backend2:
+    image: golang:1.22
+    volumes:
+      - ./mock/server2:/app:z
+    working_dir: /app
+    command: sh -c "go run main.go"
+    ports:
+      - "9002:9002"
+    networks:
+      lb-network:
+        aliases:
+          - backend2.local
+
+networks:
+  lb-network:
+    driver: bridge
+    name: lb-network

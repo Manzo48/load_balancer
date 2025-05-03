@@ -2,46 +2,46 @@ package main
 
 import (
     "flag"
-    "fmt"
+    "log"
     "os"
     "os/signal"
     "syscall"
+    "fmt"
 
-	"github.com/Manzo48/loadbalancer/pkg/config"
-    "github.com/Manzo48/load_balancer/pkg/log"
-    "github.com/your_username/loadbalancer/pkg/proxy"
+    "github.com/Manzo48/loadBalancer/pkg/config"
+    "github.com/Manzo48/loadBalancer/pkg/proxy"
+    "go.uber.org/zap"
 )
 
 func main() {
-    // Флаги: путь к конфигу
-    configFile := flag.String("config", "configs/config.yaml", "path to config file")
+    configPath := flag.String("config", "config.yaml", "path to configuration file (YAML)")
     flag.Parse()
 
-    // Инициализация логгера
-    logger := log.New()
-
-    // Чтение конфигурации
-    cfg, err := config.Load(*configFile)
+    logger, err := zap.NewProduction()
     if err != nil {
-        logger.Fatalf("failed to load config: %v", err)
+        log.Fatalf("failed to initialize logger: %v", err)
+    }
+    defer logger.Sync()
+
+    sugar := logger.Sugar()
+
+    cfg, err := config.Load(*configPath)
+    if err != nil {
+        sugar.Fatalf("failed to load config: %v", err)
     }
 
-    // Инициализация прокси
-    lb := proxy.NewLoadBalancer(cfg, logger)
+    lb := proxy.NewLoadBalancer(cfg, sugar)
 
-    // Запуск HTTP-сервера
     go func() {
         addr := fmt.Sprintf(":%d", cfg.Port)
-        logger.Infof("starting load balancer on %s", addr)
         if err := lb.ListenAndServe(addr); err != nil {
-            logger.Fatalf("server error: %v", err)
+            sugar.Fatalf("server failed: %v", err)
         }
     }()
 
-    // Graceful shutdown
-    stop := make(chan os.Signal, 1)
-    signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-    <-stop
-    logger.Info("shutting down...")
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+    <-quit
+    sugar.Info("received shutdown signal")
     lb.Shutdown()
 }
