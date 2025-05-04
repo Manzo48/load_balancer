@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv" // Для конвертации строки в число
+	"strconv" 
 
 	"gopkg.in/yaml.v2"
 )
